@@ -1,18 +1,21 @@
+import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
+import Register from "./Pages/Register.js";
 import Login from "./Pages/Login.js";
 import Profile from "./Pages/Profile.js";
-import CanvasPage from "./Pages/CanvasPage.js"; // Import your new Canvas page
+import CanvasPage from "./Pages/CanvasPage.js";
 
 function App() {
   const token = localStorage.getItem("token");
   return (
     <Router>
       <Routes>
+        <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         <Route
           path="/profile"
