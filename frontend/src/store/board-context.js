@@ -2,6 +2,7 @@ import { createContext } from "react";
 
 // yaha mujhe toolbar ke items chaiye
 const boardContext = createContext({
+  initialCanvas: {},
   activeToolItem: "",
   toolActionType: "",
   elements: [],

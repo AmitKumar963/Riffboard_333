@@ -1,51 +1,91 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-import Toolbar from "../Components/Toolbar/index.js";
-import Board from "../Components/Boards/index.js";
-import Toolbox from "../Components/Toolbox/index.js";
+import Board from "../components/Boards";
+import Toolbar from "../components/Toolbar";
 import BoardProvider from "../store/BoardProvider";
-import ToolBoxProvider from "../store/ToolboxProvider";
+import ToolboxProvider from "../store/ToolboxProvider";
+import Toolbox from "../components/Toolbox";
+import Loading from "../utils/Loading";
+import io from "socket.io-client";
 
-function CanvasPage() {
+const CanvasPage = () => {
   const { id } = useParams();
-  const [canvas, setCanvas] = useState(null);
   const navigate = useNavigate();
+  const [elements, setElements] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [ss, setSocket] = useState(null);
 
   useEffect(() => {
-    const fetchCanvas = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return navigate("/");
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
 
-      try {
-        const res = await axios.get(`http://localhost:3339/canvas/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setCanvas(res.data);
-      } catch (err) {
-        console.error("Failed to load canvas", err);
-        navigate("/");
-      }
-    };
+    // const fetchCanvas = async () => {
+    //   try {
+    //     const response = await axios.get(`http://localhost:3339/canvas/${id}`, {
+    //       headers: { Authorization: `Bearer ${token}` },
+    //     });
+    //     setCanvas(response.data);
+    //   } catch (err) {
+    //     setError("Error loading canvas. Please try again.");
+    //     console.error("Error fetching canvas:", err);
+    //   } finally {
+    //     setLoading(false);
+    //   }
+    // };
+    const socket = io(process.env.REACT_APP_API_URL, {
+      extraHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-    fetchCanvas();
+    if (id) {
+      socket.emit("joinCanvas", { canvasId: id });
+
+      socket.on("loadCanvas", (canvasData) => {
+        setSocket(socket);
+        setElements(canvasData.elements);
+        setLoading(false);
+      });
+
+      socket.on("unauthorized", (data) => {
+        setError(`Error loading canvas: ${data.message}`);
+      });
+
+      return () => {
+        socket.off("loadCanvas");
+        socket.off("unauthorized");
+      };
+    }
   }, [id, navigate]);
 
-  if (!canvas) return <div className="p-8">Loading canvas...</div>;
+  if (loading) {
+    return <Loading children={"Loading Canvas..."} />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-red-400">
+        <p>{error}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="App">
-      <BoardProvider initialCanvas={canvas}>
-        <ToolBoxProvider>
+    <>
+      {/* <h2 className="text-2xl font-bold mb-4">{canvas?.name}</h2> */}
+      <BoardProvider>
+        <ToolboxProvider>
+          <Board initialElements={elements} canvasId={id} socket={ss} />
           <Toolbar />
-          <Board />
           <Toolbox />
-        </ToolBoxProvider>
+        </ToolboxProvider>
       </BoardProvider>
-    </div>
+    </>
   );
-}
+};
 
 export default CanvasPage;

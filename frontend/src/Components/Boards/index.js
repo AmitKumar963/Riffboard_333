@@ -1,71 +1,54 @@
-import { useContext, useEffect, useLayoutEffect, useRef } from "react";
+import React, { useContext, useEffect, useLayoutEffect, useRef } from "react";
 import rough from "roughjs";
 import boardContext from "../../store/board-context";
 import { TOOL_ACTION_TYPES, TOOL_ITEMS } from "../../constants";
 import toolboxContext from "../../store/toolbox-context";
-import updateCanvas from "../../utils/api";
-
 import classes from "./index.module.css";
 
-function Board() {
+const Board = ({ initialElements, canvasId, socket }) => {
+  console.log("Board component rendered with canvasId:", canvasId);
+  console.log("Initial elements:", initialElements);
   const canvasRef = useRef();
   const textAreaRef = useRef();
-
-  // and now i will take elements array from context
+  const socketRef = useRef(null);
+  // const socket = io('http://localhost:8000');
   const {
     elements,
+    loadCanvas,
     boardMouseDownHandler,
     boardMouseMoveHandler,
     boardMouseUpHandler,
     toolActionType,
     textAreaBlurHandler,
+    boardUndoHandler,
+    boardRedoHandler,
   } = useContext(boardContext);
-
-  //we are sending the toolbox state from here so that i can get the fill and stroke to cretate the roughEle
-
-  const { toolboxState } = useContext(toolboxContext);
-
-  // this use effect will simply set the height and width of the canvas
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
   }, []);
 
-  // METHOD TO DRAW ON CANVAS
-  // sare elements ko draw karne ke liye we will make another useEffect
-  // every time elements array chnage we will clean the board first and then rerender and draw each item in elements again
-  // useLayouutEffect is same as useEffect -> bass dom interaaction mei useLayoutEffect is better
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
-
-    // so that we can clear it in useEffect before rerendring the new items in elements array
     const context = canvas.getContext("2d");
     context.save();
 
     const roughCanvas = rough.canvas(canvas);
-
-    // and now jab elements change honge i will draw the items of element array based on the roughtEle ( basically i have given the co-ordinates in roughEle)
-
     elements.forEach((element) => {
-      //now here for brush we won't draw with rough.js
-
       switch (element.type) {
-        case TOOL_ITEMS.LINE:
-        case TOOL_ITEMS.RECTANGLE:
-        case TOOL_ITEMS.CIRCLE:
         case TOOL_ITEMS.ARROW:
+        case TOOL_ITEMS.CIRCLE:
+        case TOOL_ITEMS.RECTANGLE:
+        case TOOL_ITEMS.LINE:
           roughCanvas.draw(element.roughEle);
           break;
-
         case TOOL_ITEMS.BRUSH:
           context.fillStyle = element.stroke;
           context.fill(element.path);
           context.restore();
           break;
-
-        case TOOL_ITEMS.TEXT: // do this if the current tool is a text
-          // if we want the textare content to save on canvas
+        case TOOL_ITEMS.TEXT:
           context.textBaseline = "top";
           context.font = `${element.size}px Caveat`;
           context.fillStyle = element.stroke;
@@ -73,70 +56,101 @@ function Board() {
           context.restore();
           break;
         default:
-          throw new Error("Type Not Recognised");
+          throw new Error("Type not recognized");
       }
     });
 
     return () => {
-      // jab bhi elements change ho, clear kar de pure canvas ko and then rerender them again
       context.clearRect(0, 0, canvas.width, canvas.height);
     };
   }, [elements]);
 
   useEffect(() => {
-    const textArea = textAreaRef.current;
-
+    const textarea = textAreaRef.current;
     if (toolActionType === TOOL_ACTION_TYPES.WRITING) {
       setTimeout(() => {
-        textArea.focus(); // agar tool writing mei change hua hai then uss tool ko focus kar do
+        textarea.focus();
       }, 0);
     }
   }, [toolActionType]);
 
-  // jaise hi mouse click hoga
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key === "z") {
+        event.preventDefault();
+        boardUndoHandler();
+      } else if ((event.ctrlKey || event.metaKey) && event.key === "y") {
+        event.preventDefault();
+        boardRedoHandler();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [boardUndoHandler, boardRedoHandler]);
+
+  useEffect(() => {
+    loadCanvas(initialElements);
+  }, [loadCanvas, initialElements]);
+
+  const { toolboxState } = useContext(toolboxContext);
+
   const handleMouseDown = (event) => {
-    boardMouseDownHandler(event, toolboxState); // isme se bascially i will get the co-ordinates ( clientX, clientY)
-    // and we are also sending the toolBoxState to get the stroke and fill state of a tool
+    boardMouseDownHandler(event, toolboxState);
   };
-
-  // continuously fires as the mouse cursor moves, providing real-time updates on the cursor’s position.
   const handleMouseMove = (event) => {
-    boardMouseMoveHandler(event); // isme se bascially i will get the co-ordinates ( clientX, clientY)
-    // agar abhi tak button click hi nahi hua hai then don't keep track of the cursor movement
+    boardMouseMoveHandler(event);
   };
 
-  // when we relaese the mouse cursor
   const handleMouseUp = () => {
     boardMouseUpHandler();
-    const canvasId = window.location.pathname.split("/").pop(); // get the canvas id
-    updateCanvas(canvasId, elements);
+    if (!socketRef.current) socketRef.current = socket;
+    socketRef.current.emit("drawingUpdate", { canvasId, elements });
+    // updateCanvas(canvasId, elements);
   };
+  useEffect(() => {
+    if (!socketRef.current) {
+      socketRef.current = socket;
+    }
+    socketRef.current.on("receiveDrawingUpdate", (updatedElements) => {
+      console.log("Received drawing update:", updatedElements);
+      loadCanvas(updatedElements); // Update the UI with new elements
+    });
+
+    return () => {
+      socketRef.current.off("receiveDrawingUpdate");
+    };
+  }, [loadCanvas, socket]);
 
   return (
     <>
       {toolActionType === TOOL_ACTION_TYPES.WRITING && (
         <textarea
           type="text"
-          ref={textAreaRef}
           className={classes.textElementBox}
           style={{
             top: elements[elements.length - 1].y1,
             left: elements[elements.length - 1].x1,
             fontSize: `${elements[elements.length - 1]?.size}px`,
-            color: elements[elements.length - 1]?.stroke,
-          }} // ye based on maine kaha click kiya tha
-          onBlur={(event) => textAreaBlurHandler(event.target.value)}
+            color: elements[elements.length - 1].stroke,
+          }}
+          ref={textAreaRef}
+          onBlur={(event) =>
+            textAreaBlurHandler(event.target.value, toolboxState)
+          }
         />
       )}
       <canvas
         ref={canvasRef}
-        id="canvas"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       />
     </>
   );
-}
+};
 
 export default Board;

@@ -1,4 +1,4 @@
-import React, { useReducer } from "react";
+import React, { useCallback, useReducer } from "react";
 
 import boardContext from "./board-context";
 import { BOARD_ACTIONS, TOOL_ACTION_TYPES, TOOL_ITEMS } from "../constants";
@@ -13,6 +13,25 @@ import getStroke from "perfect-freehand";
 const boardReducer = (state, action) => {
   // ab yaha mei switch mei harr type ke liye uska particular action define kar lunga
   switch (action.type) {
+    // load_canvas action will be used to load the initial canvas from the backend
+    // it will take the elements from the payload and map through them to convert the brush points
+    // to a Path2D object so that it can be drawn on the canvas
+    // it will also convert the points of the brush to a Path2D object so that
+    // it can be drawn on the canvas
+    case BOARD_ACTIONS.LOAD_CANVAS: {
+      return {
+        ...state,
+        elements: action.payload.elements.map((element) => {
+          if (element.type === "BRUSH") {
+            return {
+              ...element,
+              path: new Path2D(getSvgPathFromStroke(getStroke(element.points))),
+            };
+          }
+          return element;
+        }),
+      };
+    }
     // change_tool action pe sabkuch same rakha and return the new state with changing the activetoolitem
     case BOARD_ACTIONS.CHANGE_TOOL: {
       return {
@@ -185,30 +204,38 @@ const boardReducer = (state, action) => {
   }
 };
 
+const initialBoardState = {
+  activeToolItem: TOOL_ITEMS.BRUSH,
+  toolActionType: TOOL_ACTION_TYPES.NONE,
+  elements: [],
+  history: [[]],
+  index: 0,
+};
 // children prop always chaiye hoga provider mei
-const BoardProvider = ({ children, initialCanvas }) => {
+const BoardProvider = ({ children }) => {
   // takes a reducer function and an initial state, returning the current state and a dispatch function.
 
   // initialcanvas is the initial state of the board, which will be passed from the CanvasPage component backend
   // it will be used to set the initial elements and history of the board
-  const initialBoardState = {
-    activeToolItem: TOOL_ITEMS.BRUSH,
-    toolActionType: TOOL_ACTION_TYPES.NONE,
-    elements: initialCanvas?.elements || [],
-    history: [initialCanvas?.elements || []], // for undo and redo
-    index: 0,
-  };
   const [boardState, dispatchBoardAction] = useReducer(
     boardReducer,
     initialBoardState
   );
 
-  console.log("Board State: ", initialBoardState);
+  // console.log("Board State: ", initialBoardState);
+
+  const loadCanvas = useCallback((updatedElements) => {
+    dispatchBoardAction({
+      type: BOARD_ACTIONS.LOAD_CANVAS,
+      payload: {
+        elements: updatedElements,
+      },
+    });
+  }, []);
 
   // now instead of making both these state i will handle them with useReducer
   // const [activeToolItem, setActiveToolItem] = useState(TOOL_ITEMS.LINE);
   // const [elements, setElements] = useState([]);
-
   const changeToolHandler = (tool) => {
     // setActiveToolItem(tool); // now instead of directly changing this we have to dipatch an action
 
@@ -320,8 +347,9 @@ const BoardProvider = ({ children, initialCanvas }) => {
     boardMouseMoveHandler,
     boardMouseUpHandler,
     textAreaBlurHandler,
-    undo: boardUndohandler,
-    redo: boardRedohandler,
+    boardUndohandler,
+    boardRedohandler,
+    loadCanvas,
   };
 
   return (

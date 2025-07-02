@@ -1,5 +1,7 @@
+const jwt = require("jsonwebtoken");
 const Canvas = require("../models/canvasModel.js");
 const Users = require("../models/userModel.js");
+const canvasData = {};
 
 const getAllCanvases = async (req, res) => {
   // Even if this is a get method -> we are getting the email as we are taking out the information from the token and add it in req.user = decoded ( so when it pass from the middleware we have all the information about the user in req.user)
@@ -60,6 +62,37 @@ const updateCanvas = async (req, res) => {
   }
 };
 
+const updateCanvasProfile = async (req, res) => {
+  try {
+    const canvasId = req.params.id;
+    const email = req.user.email;
+    const { name } = req.body;
+
+    const canvas = await Canvas.updateCanvasProfile(email, name, canvasId);
+    if (!canvas) {
+      return res.status(404).json({ error: "Canvas not found" });
+    }
+
+    res.status(200).json(canvas);
+  } catch (error) {
+    res.status(400).json({
+      error: "Failed to update canvas profile",
+      details: error.message,
+    });
+  }
+};
+
+const deleteCanvas = async (req, res) => {
+  try {
+    const canvasId = req.params.id;
+    const email = req.user.email;
+    const result = await Canvas.deleteCanvas(email, canvasId);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 const shareCanvas = async (req, res) => {
   try {
     const canvasId = req.params.id;
@@ -88,10 +121,60 @@ const shareCanvas = async (req, res) => {
   }
 };
 
+const handleJoinCanvas = async (socket, { canvasId }) => {
+  console.log("Joining canvas: ", canvasId);
+  try {
+    const authHeader = socket.handshake.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      socket.emit("unauthorized", { message: "Unauthorized" });
+      return;
+    }
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await Users.findOne({ email: decoded.email });
+    if (!user) {
+      socket.emit("unauthorized", { message: "Unauthorized" });
+      return;
+    }
+    const canvas = await Canvas.loadCanvas(user.email, canvasId);
+    if (!canvas) {
+      socket.emit("unauthorized", { message: "Unauthorized" });
+      return;
+    }
+    socket.join(canvasId);
+    console.log(`User ${user.email} joined canvas ${canvasId}`);
+    socket.emit("loadCanvas", canvas);
+  } catch (error) {
+    console.error(error);
+    socket.emit("unauthorized", { message: "Unauthorized" });
+  }
+};
+
+const handleUpdateCanvas = async (io, socket, { canvasId, elements }) => {
+  console.log("Updating canvas: ", canvasId);
+  try {
+    canvasData[canvasId] = elements;
+    const canvas = await Canvas.findById(canvasId);
+    if (canvas)
+      await Canvas.findByIdAndUpdate(
+        canvasId,
+        { elements },
+        { new: true, useFindAndModify: false }
+      );
+    socket.to(canvasId).emit("receiveDrawingUpdate", elements);
+  } catch (error) {
+    console.error(`Error in drawing update:`, error);
+  }
+};
+
 module.exports = {
   getAllCanvases,
   createCanvas,
   loadCanvas,
   updateCanvas,
+  updateCanvasProfile,
+  deleteCanvas,
   shareCanvas,
+  handleJoinCanvas,
+  handleUpdateCanvas,
 };

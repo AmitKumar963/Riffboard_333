@@ -11,6 +11,7 @@ const handleControllerError = (res, error) => {
 const createUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    console.log(name, email, password);
     const newUser = await Users.register(name, email, password);
 
     // Generate a token after registration
