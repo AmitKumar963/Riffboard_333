@@ -47,5 +47,31 @@ const getUserProfile = async (req, res) => {
     res.status(401).json({ message: error.message });
   }
 };
+// Delete user
+const deleteUser = async (req, res) => {
+  try {
+    const response = await Users.deleteUser(req.user.userId);
+    res.status(200).json(response);
+  } catch (error) {
+    handleControllerError(res, error);
+  }
+};
 
-module.exports = { createUser, loginUser, getUserProfile };
+// Update user details
+const updateUser = async (req, res) => {
+  try {
+    const updatedFields = req.body;
+    const updatedUser = await Users.updateUser(req.user.userId, updatedFields);
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    handleControllerError(res, error);
+  }
+};
+
+module.exports = {
+  createUser,
+  loginUser,
+  getUserProfile,
+  deleteUser,
+  updateUser,
+};

@@ -149,6 +149,49 @@ userSchema.statics.login = async function (email, password) {
   }
 };
 
+userSchema.statics.deleteUser = async function (userId) {
+  try {
+    // Find the user to be deleted
+    const user = await this.findByIdAndDelete(userId);
+    if (!user) {
+      // Throw an error if the user was not found
+      throw new Error("User not found");
+    }
+    // Return a success message
+    return { message: "User deleted successfully" };
+  } catch (error) {
+    // Throw an error if there's an issue during the deletion process
+    throw new Error(`Error deleting user: ${error.message}`);
+  }
+};
+
+userSchema.statics.updateUser = async function (userId, updatedFields) {
+  try {
+    // Check if the password needs to be updated and hash it
+    if (updatedFields.password) {
+      updatedFields.password = await this.hashPassword(updatedFields.password);
+    }
+
+    // Update the user with the provided fields and return the updated user object
+    const user = await this.findByIdAndUpdate(
+      userId,
+      { $set: updatedFields },
+      { new: true, runValidators: true }
+    );
+
+    // If the user is not found, throw an error
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Return the updated user object
+    return user;
+  } catch (error) {
+    // Throw an error if there's an issue during the update process
+    throw new Error(`Error updating user: ${error.message}`);
+  }
+};
+
 const userModel = mongoose.model("Users", userSchema);
 
 module.exports = userModel;
