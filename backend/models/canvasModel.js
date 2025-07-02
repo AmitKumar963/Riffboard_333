@@ -98,32 +98,66 @@ canvasSchema.statics.loadCanvas = async function (email, canvasId) {
 };
 
 canvasSchema.statics.updateCanvas = async function (email, canvasId, elements) {
-  const user = await Users.findOne({ email });
   try {
     // Find the user by email
+    const user = await Users.findOne({ email });
+    if (!user) {
+      throw new Error("User not found");
+    }
+    const canvas = await this.findOne({
+      _id: canvasId,
+      $or: [{ owner: user._id }, { shared_with: user._id }],
+    });
+    if (!canvas) {
+      throw new Error("Canvas not found");
+    }
+
+    canvas.elements = elements;
+    const updatedCanvas = await canvas.save();
+
+    return updatedCanvas;
+  } catch (error) {
+    throw new Error(`Error updating canvas: ${error.message}`);
+  }
+};
+
+canvasSchema.statics.shareCanvas = async function (
+  email,
+  canvasId,
+  sharedEmail
+) {
+  try {
+    const user = await Users.findOne({ email });
     if (!user) {
       throw new Error("User not found");
     }
 
-    // Find the canvas with the id canvasId that the user owns or has access to
     const canvas = await this.findOne({
       _id: canvasId,
       $or: [{ owner: user._id }, { shared_with: user._id }],
     });
 
-    // If the canvas was not found, throw an error
     if (!canvas) {
-      throw new Error("Canvas not found");
+      throw new Error(
+        "Canvas not found or you do not have permission to share it"
+      );
     }
 
-    // Update the elements of the canvas
-    canvas.elements = elements;
+    const sharedUser = await Users.findOne({ email: sharedEmail });
+    if (!sharedUser) {
+      throw new Error("User to be shared with not found");
+    }
 
-    // Save the updated canvas
-    const updatedCanvas = await canvas.save();
-    return updatedCanvas;
+    if (canvas.shared_with.includes(sharedUser._id)) {
+      throw new Error("User is already shared with this canvas");
+    }
+
+    canvas.shared_with.push(sharedUser._id);
+    await canvas.save();
+
+    return { message: "Canvas shared successfully" };
   } catch (error) {
-    throw new Error(`Error updating canvas: ${error.message}`);
+    throw new Error(`Error sharing canvas: ${error.message}`);
   }
 };
 

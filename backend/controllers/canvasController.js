@@ -60,4 +60,38 @@ const updateCanvas = async (req, res) => {
   }
 };
 
-module.exports = { getAllCanvases, createCanvas, loadCanvas, updateCanvas };
+const shareCanvas = async (req, res) => {
+  try {
+    const canvasId = req.params.id;
+    const email = req.user.email;
+    const { sharedEmail } = req.body;
+
+    if (!sharedEmail) {
+      return res.status(400).json({ error: "Shared email is required" });
+    }
+
+    const result = await Canvas.shareCanvas(email, canvasId, sharedEmail);
+    return res.status(200).json(result);
+  } catch (error) {
+    // Determine status code based on error message
+    let statusCode = 500;
+
+    if (error.message.includes("not found")) {
+      statusCode = 404;
+    } else if (error.message.includes("permission")) {
+      statusCode = 403;
+    } else if (error.message.includes("already shared")) {
+      statusCode = 400;
+    }
+
+    return res.status(statusCode).json({ error: error.message });
+  }
+};
+
+module.exports = {
+  getAllCanvases,
+  createCanvas,
+  loadCanvas,
+  updateCanvas,
+  shareCanvas,
+};
