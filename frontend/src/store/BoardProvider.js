@@ -3,7 +3,7 @@ import React, { useCallback, useReducer } from "react";
 import boardContext from "./board-context";
 import { BOARD_ACTIONS, TOOL_ACTION_TYPES, TOOL_ITEMS } from "../constants";
 import {
-  createElement,
+  createRoughElement,
   getSvgPathFromStroke,
   isPointNearElement,
 } from "../utils/element";
@@ -55,7 +55,7 @@ const boardReducer = (state, action) => {
       const { clientX, clientY, stroke, fill, size } = action.payload;
 
       //new coordinates se ek new item bana ke push in elements array ( made a particular function for it to make element base on tool_item type)
-      const newElements = createElement(
+      const newElements = createRoughElement(
         state.elements.length,
         clientX,
         clientY,
@@ -95,12 +95,19 @@ const boardReducer = (state, action) => {
         case TOOL_ITEMS.ARROW:
           const { x1, y1, stroke, fill, size } = updatedElements[index]; // isme type bhi lele to make different elements based on tool
           // ye mere paas new Element bann ke aa gaya with the update co-ordinates in all the above 4 types of tools
-          const newElements = createElement(index, x1, y1, clientX, clientY, {
-            type: state.activeToolItem,
-            stroke,
-            fill,
-            size,
-          });
+          const newElements = createRoughElement(
+            index,
+            x1,
+            y1,
+            clientX,
+            clientY,
+            {
+              type: state.activeToolItem,
+              stroke,
+              fill,
+              size,
+            }
+          );
 
           updatedElements[index] = newElements;
 
@@ -131,11 +138,11 @@ const boardReducer = (state, action) => {
     }
 
     case BOARD_ACTIONS.DRAW_UP: {
-      const elementsCopy = [...state.elements]; // ye ho gaye element ki copy
+      // const elementsCopy = [...state.elements]; // ye ho gaye element ki copy
       const newHistory = state.history.slice(0, state.index + 1); // so that when i am coming back and drawing new stuff -> remove uske aage ke sare state
 
       // now push it into the history
-      newHistory.push(elementsCopy);
+      newHistory.push(state.elements);
 
       return {
         ...state,
@@ -149,19 +156,22 @@ const boardReducer = (state, action) => {
       const { clientX, clientY } = action.payload;
 
       let newElements = [...state.elements];
-
+      let isErased = false;
       newElements = newElements.filter((element) => {
         // define in element.js
-        return !isPointNearElement(element, clientX, clientY); // agar wo hamare eraser ke point ke paas hai then we have to delete it
+        const isNear = !isPointNearElement(element, clientX, clientY); // agar wo hamare eraser ke point ke paas hai then we have to delete it
+        isErased ||= !isNear;
+        return isNear;
       });
 
       const newHistory = state.history.slice(0, state.index + 1);
-      newHistory.push(newElements);
+      if (isErased) newHistory.push(newElements);
+      const newIndex = isErased ? state.index + 1 : state.index;
       return {
         ...state,
         elements: newElements,
         history: newHistory,
-        index: state.index + 1,
+        index: newIndex,
       };
     }
 
@@ -326,17 +336,17 @@ const BoardProvider = ({ children }) => {
     });
   };
 
-  const boardUndohandler = () => {
+  const boardUndoHandler = useCallback(() => {
     dispatchBoardAction({
       type: BOARD_ACTIONS.UNDO,
     });
-  };
+  }, []);
 
-  const boardRedohandler = () => {
+  const boardRedoHandler = useCallback(() => {
     dispatchBoardAction({
       type: BOARD_ACTIONS.REDO,
     });
-  };
+  }, []);
 
   const boardContextValue = {
     activeToolItem: boardState.activeToolItem,
@@ -347,8 +357,8 @@ const BoardProvider = ({ children }) => {
     boardMouseMoveHandler,
     boardMouseUpHandler,
     textAreaBlurHandler,
-    boardUndohandler,
-    boardRedohandler,
+    boardUndoHandler,
+    boardRedoHandler,
     loadCanvas,
   };
 

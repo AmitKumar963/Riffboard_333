@@ -7,7 +7,7 @@ import rough from "roughjs/bin/rough"; // to import gen
 //import rough generator so that yahi se direct rough ka element create kar de based on the parameter it take ( different parameter for each type of tool (line , rectangle ))
 const gen = rough.generator();
 
-export const createElement = (
+export const createRoughElement = (
   id,
   x1,
   y1,
@@ -119,6 +119,7 @@ export const createElement = (
 
 export const isPointNearElement = (element, pointX, pointY) => {
   const { x1, y1, x2, y2, type } = element;
+  const context = document.getElementsByTagName("canvas")[0].getContext("2d");
 
   switch (type) {
     case TOOL_ITEMS.LINE:
@@ -139,14 +140,11 @@ export const isPointNearElement = (element, pointX, pointY) => {
     case TOOL_ITEMS.BRUSH: {
       // yaha mujhe canvas ka context chaiye hoga to use a predefine function isPointPath(path, x, y) -> return true if (x, y) is in the path
       // context i can get by id of canvas and make the context here only
-
-      const context = document.getElementById("canvas").getContext("2d");
       return context.isPointInPath(element.path, pointX, pointY);
     }
 
     case TOOL_ITEMS.TEXT: {
-      const context = document.getElementById("canvas").getContext("2d");
-
+      context.save();
       context.font = `${element.size}px Caveat`;
       context.fillStyle = element.stroke;
       const textWidth = context.measureText(element.text).width;

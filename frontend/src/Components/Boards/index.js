@@ -6,8 +6,8 @@ import toolboxContext from "../../store/toolbox-context";
 import classes from "./index.module.css";
 
 const Board = ({ initialElements, canvasId, socket }) => {
-  console.log("Board component rendered with canvasId:", canvasId);
-  console.log("Initial elements:", initialElements);
+  // console.log("Board component rendered with canvasId:", canvasId);
+  // console.log("Initial elements:", initialElements);
   const canvasRef = useRef();
   const textAreaRef = useRef();
   const socketRef = useRef(null);
