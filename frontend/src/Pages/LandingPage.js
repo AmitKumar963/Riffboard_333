@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 const LandingPage = () => {
   const navigate = useNavigate();
 
+  const previewUrl = process.env.REACT_APP_PREVIEWSITE;
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
@@ -33,10 +35,7 @@ const LandingPage = () => {
         </button>
 
         <button
-          onClick={() =>
-            (window.location.href =
-              "https://riffboard-frontend-preview.vercel.app")
-          }
+          onClick={() => (window.location.href = previewUrl)}
           className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-all duration-300"
         >
           Preview

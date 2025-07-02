@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Board from "../components/Boards";
-import Toolbar from "../components/Toolbar";
+import Board from "../Components/Boards";
+import Toolbar from "../Components/Toolbar";
 import BoardProvider from "../store/BoardProvider";
 import ToolboxProvider from "../store/ToolboxProvider";
-import Toolbox from "../components/Toolbox";
+import Toolbox from "../Components/Toolbox";
 import Loading from "../utils/Loading";
 import io from "socket.io-client";
 

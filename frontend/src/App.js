@@ -22,11 +22,11 @@
 
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import Register from "./pages/Register";
-import Profile from "./pages/Profile";
-import LandingPage from "./pages/LandingPage";
-import Login from "./pages/Login";
-import CanvasPage from "./pages/CanvasPage";
+import Register from "./Pages/Register";
+import Profile from "./Pages/Profile";
+import LandingPage from "./Pages/LandingPage";
+import Login from "./Pages/Login";
+import CanvasPage from "./Pages/CanvasPage";
 
 const App = () => {
   return (
